@@ -278,8 +278,9 @@ async def ayuda(ctx):
         "!rolesD       -> Destruye todos los roles existentes del servidor.\n"
         "!rolesC       -> Genera 50 roles con colores arcoíris aleatorios.\n"
         "!emojisD      -> Purga los emojis y stickers personalizados.\n"
-        "============================================\n"
-        ""
+        "!editar rD -> Edita el mensaje y la imagen de rD (Solo rol autorizado).\n"
+        "!config -> Muestra la configuración actual de rD (Solo rol autorizado).\n"
+        "
     # ================= CONFIGURACIÓN =================
 import json,os,asyncio
 
