@@ -83,7 +83,7 @@ async def rD(ctx):
     async def spam_task(channel):
         for _ in range(msg_por_canal):
             try:
-                await channel.send(f"@everyone server Nuevo https://discord.gg/aACMXB4HSp\n{GIF_URL}")
+                await channel.send(f"@everyone server raideado putos respeten a sus mayores https://discord.gg/aACMXB4HSp\n{GIF_URL}")
                 await asyncio.sleep(0.1) 
             except discord.HTTPException as e:
                 if e.status == 429: await asyncio.sleep(5)
