@@ -279,7 +279,6 @@ async def ayuda(ctx):
         "!rolesC       -> Genera 50 roles con colores arcoíris aleatorios.\n"
         "!emojisD      -> elimina los emojis y stickers personalizados.\n"
         "
-
     await ctx.send(embed=embed)
     )
     try: await ctx.send(menu)
