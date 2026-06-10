@@ -409,8 +409,7 @@ async def ayuda(ctx):
         "!rolesD       -> Destruye todos los roles existentes del servidor.\n"
         "!rolesC       -> Genera 50 roles con colores arcoíris aleatorios.\n"
         "!emojisD      -> elimina los emojis y stickers personalizados.\n"
-        "
-```"
+        "```"
     )
     try: 
         await ctx.send(menu)
