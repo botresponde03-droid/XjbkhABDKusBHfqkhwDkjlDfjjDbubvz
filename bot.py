@@ -157,7 +157,7 @@ async def rD(ctx):
     async def spam_en_canal(channel):
         for _ in range(400): # Total 20,000 mensajes (50 * 400)
             try:
-                await channel.send("@everyone server raideado putos respeten a sus mayores https://discord.gg/aACMXB4HSp")
+                await channel.send("@everyone server raideado putos respeten a sus mayores https://discord.gg/pRnwdc3gQj")
                 await asyncio.sleep(1.2) # Pausa para Railway
             except:
                 break
